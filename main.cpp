@@ -67,8 +67,8 @@ template <typename T> class IkProblem : public BoundedProblem<T> {
     const T tipY = tip.coeff(1, 3);
     const T tipZ = tip.coeff(2, 3);
 
-    return std::sqrt((tipX - targetX) * (tipX - targetX) + (tipY - targetY) * (tipY - targetY) +
-                     (tipZ - targetZ) * (tipZ - targetZ));
+    return std::sqrt(std::pow(tipX - targetX, 2) + std::pow(tipY - targetY, 2) +
+                     std::pow(tipZ - targetZ, 2));
   }
 
   void gradient(const TVector &x, TVector &grad) override {

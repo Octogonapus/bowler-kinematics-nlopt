@@ -80,18 +80,18 @@ template <typename T> class IkProblem : public BoundedProblem<T> {
   std::vector<DhParam<T>> dhParams;
 };
 
-double rad(const double deg) {
+float rad(const float deg) {
   return deg * (M_PI / 180.0);
 }
 
 int main(int, char const *[]) {
-  Eigen::VectorXd lowerJointLimits(6);
+  Eigen::VectorXf lowerJointLimits(6);
   lowerJointLimits << -M_PI, -M_PI, -M_PI, -M_PI, -M_PI, -M_PI;
 
-  Eigen::VectorXd upperJointLimits(6);
+  Eigen::VectorXf upperJointLimits(6);
   upperJointLimits << M_PI, M_PI, M_PI, M_PI, M_PI, M_PI;
 
-  Eigen::Matrix4d target;
+  Eigen::Matrix4f target;
   // 3001 home
   // target << 1, 0, 0, 175, 0, 1, 0, 1.0365410507983197e-14, 0, 0, 1, -34.28, 0, 0, 0, 1;
 
@@ -101,18 +101,18 @@ int main(int, char const *[]) {
   // cmm target
   target << 1, 0, 0, 41.999999999999986, 0, 1, 0, -44, 0, 0, 1, 169, 0, 0, 0, 1;
 
-  typedef IkProblem<double> Problem;
-  Problem f({DhParam(13.0, rad(180), 32.0, rad(-90)),
-             DhParam(25.0, rad(-90), 93.0, rad(180)),
-             DhParam(11.0, rad(90), 24.0, rad(90)),
-             DhParam(128.0, rad(-90), 0.0, rad(90)),
-             DhParam(0.0, 0.0, 0.0, rad(-90)),
-             DhParam(25.0, rad(90), 0.0, 0.0)},
+  typedef IkProblem<float> Problem;
+  Problem f({DhParam(13.0f, rad(180), 32.0f, rad(-90)),
+             DhParam(25.0f, rad(-90), 93.0f, rad(180)),
+             DhParam(11.0f, rad(90), 24.0f, rad(90)),
+             DhParam(128.0f, rad(-90), 0.0f, rad(90)),
+             DhParam(0.0f, 0.0f, 0.0f, rad(-90)),
+             DhParam(25.0f, rad(90), 0.0f, 0.0f)},
             target,
             lowerJointLimits,
             upperJointLimits);
 
-  Eigen::VectorXd initialJointAngles(6);
+  Eigen::VectorXf initialJointAngles(6);
   initialJointAngles << 0, 0, 0, 0, 0, 0;
 
   LbfgsbSolver<Problem> solver;

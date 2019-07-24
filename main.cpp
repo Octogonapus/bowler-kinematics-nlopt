@@ -1,6 +1,7 @@
 #include "cppoptlib/meta.h"
 #include "cppoptlib/problem.h"
 #include "cppoptlib/solver/lbfgsbsolver.h"
+#include <chrono>
 #include <cmath>
 #include <iostream>
 
@@ -57,7 +58,7 @@ template <typename T> class IkProblem : public BoundedProblem<T> {
 
   void gradient(const TVector &x, TVector &grad) override {
     // TODO: Compute jacobian
-    Problem<T>::finiteGradient(x, grad, 3);
+    Problem<T>::finiteGradient(x, grad, 0);
   }
 
   const FT target;
@@ -88,7 +89,15 @@ int main(int, char const *[]) {
 
   LbfgsbSolver<Problem> solver;
 
-  solver.minimize(f, initialJointAngles);
+  const int numIter = 1000;
+  auto start = std::chrono::high_resolution_clock::now();
+  for (int i = 0; i < numIter; ++i) {
+    solver.minimize(f, initialJointAngles);
+  }
+  auto end = std::chrono::high_resolution_clock::now();
+  std::cout << "Microseconds per solve: "
+            << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / numIter
+            << std::endl;
 
   std::cout << initialJointAngles(0) * (180.0 / M_PI) << std::endl;
   std::cout << initialJointAngles(1) * (180.0 / M_PI) << std::endl;

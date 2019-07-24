@@ -10,14 +10,29 @@ using namespace cppoptlib;
 template <typename Scalar> class DhParam {
   public:
   DhParam(Scalar d, Scalar theta, Scalar r, Scalar alpha) : d(d), theta(theta), r(r), alpha(alpha) {
+    ft.coeffRef(2, 0) = 0;
+    ft.coeffRef(2, 3) = d;
+    ft.coeffRef(3, 0) = 0;
+    ft.coeffRef(3, 1) = 0;
+    ft.coeffRef(3, 2) = 0;
+    ft.coeffRef(3, 3) = 1;
   }
 
-  void computeFT(Scalar jointAngle) {
+  void computeFT(const Scalar jointAngle) {
     const Scalar ct = std::cos(theta + jointAngle);
     const Scalar st = std::sin(theta + jointAngle);
     const Scalar ca = std::cos(alpha);
     const Scalar sa = std::sin(alpha);
-    ft << ct, -st * ca, st * sa, r * ct, st, ct * ca, -ct * sa, r * st, 0, sa, ca, d, 0, 0, 0, 1;
+    ft.coeffRef(0, 0) = ct;
+    ft.coeffRef(0, 1) = -st * ca;
+    ft.coeffRef(0, 2) = st * sa;
+    ft.coeffRef(0, 3) = r * ct;
+    ft.coeffRef(1, 0) = st;
+    ft.coeffRef(1, 1) = ct * ca;
+    ft.coeffRef(1, 2) = -ct * sa;
+    ft.coeffRef(1, 3) = r * st;
+    ft.coeffRef(2, 1) = sa;
+    ft.coeffRef(2, 2) = ca;
   }
 
   const Scalar d;
@@ -44,13 +59,13 @@ template <typename T> class IkProblem : public BoundedProblem<T> {
       tip *= dhParams[i].ft;
     }
 
-    const T targetX = target(0, 3);
-    const T targetY = target(1, 3);
-    const T targetZ = target(2, 3);
+    const T targetX = target.coeff(0, 3);
+    const T targetY = target.coeff(1, 3);
+    const T targetZ = target.coeff(2, 3);
 
-    const T tipX = tip(0, 3);
-    const T tipY = tip(1, 3);
-    const T tipZ = tip(2, 3);
+    const T tipX = tip.coeff(0, 3);
+    const T tipY = tip.coeff(1, 3);
+    const T tipZ = tip.coeff(2, 3);
 
     return std::sqrt((tipX - targetX) * (tipX - targetX) + (tipY - targetY) * (tipY - targetY) +
                      (tipZ - targetZ) * (tipZ - targetZ));

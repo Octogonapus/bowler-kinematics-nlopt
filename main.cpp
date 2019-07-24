@@ -65,27 +65,40 @@ template <typename T> class IkProblem : public BoundedProblem<T> {
   std::vector<DhParam<T>> dhParams;
 };
 
-int main(int, char const *[]) {
-  Eigen::VectorXd lowerJointLimits(3);
-  lowerJointLimits << -M_PI, -M_PI, -M_PI;
+double rad(const double deg) {
+  return deg * (M_PI / 180.0);
+}
 
-  Eigen::VectorXd upperJointLimits(3);
-  upperJointLimits << M_PI, M_PI, M_PI;
+int main(int, char const *[]) {
+  Eigen::VectorXd lowerJointLimits(6);
+  lowerJointLimits << -M_PI, -M_PI, -M_PI, -M_PI, -M_PI, -M_PI;
+
+  Eigen::VectorXd upperJointLimits(6);
+  upperJointLimits << M_PI, M_PI, M_PI, M_PI, M_PI, M_PI;
 
   Eigen::Matrix4d target;
-  //  target << 1, 0, 0, 175, 0, 1, 0, 1.0365410507983197e-14, 0, 0, 1, -34.28, 0, 0, 0, 1;
-  target << 1, 0, 0, 200, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
+  // 3001 home
+  // target << 1, 0, 0, 175, 0, 1, 0, 1.0365410507983197e-14, 0, 0, 1, -34.28, 0, 0, 0, 1;
+
+  // 3001 target
+  // target << 1, 0, 0, 200, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
+
+  // cmm target
+  target << 1, 0, 0, 41.999999999999986, 0, 1, 0, -44, 0, 0, 1, 169, 0, 0, 0, 1;
 
   typedef IkProblem<double> Problem;
-  Problem f({DhParam(135.0, 0.0, 0.0, -90 * (M_PI / 180.0)),
-             DhParam(0.0, 0.0, 175.0, 0.0),
-             DhParam(0.0, 90.0 * (M_PI / 180.0), 169.28, 0.0)},
+  Problem f({DhParam(13.0, rad(180), 32.0, rad(-90)),
+             DhParam(25.0, rad(-90), 93.0, rad(180)),
+             DhParam(11.0, rad(90), 24.0, rad(90)),
+             DhParam(128.0, rad(-90), 0.0, rad(90)),
+             DhParam(0.0, 0.0, 0.0, rad(-90)),
+             DhParam(25.0, rad(90), 0.0, 0.0)},
             target,
             lowerJointLimits,
             upperJointLimits);
 
-  Eigen::VectorXd initialJointAngles(3);
-  initialJointAngles << 0, 0, 0;
+  Eigen::VectorXd initialJointAngles(6);
+  initialJointAngles << 0, 0, 0, 0, 0, 0;
 
   LbfgsbSolver<Problem> solver;
 
@@ -99,9 +112,12 @@ int main(int, char const *[]) {
             << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / numIter
             << std::endl;
 
-  std::cout << initialJointAngles(0) * (180.0 / M_PI) << std::endl;
-  std::cout << initialJointAngles(1) * (180.0 / M_PI) << std::endl;
-  std::cout << initialJointAngles(2) * (180.0 / M_PI) << std::endl;
+  std::cout << initialJointAngles(0) * (180.0 / M_PI) << " "
+            << initialJointAngles(1) * (180.0 / M_PI) << " "
+            << initialJointAngles(2) * (180.0 / M_PI) << " "
+            << initialJointAngles(3) * (180.0 / M_PI) << " "
+            << initialJointAngles(4) * (180.0 / M_PI) << " "
+            << initialJointAngles(5) * (180.0 / M_PI) << std::endl;
   std::cout << "argmin      " << initialJointAngles.transpose() << std::endl;
   std::cout << "f in argmin " << f(initialJointAngles) << std::endl;
 

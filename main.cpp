@@ -4,8 +4,7 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
-
-using namespace cppoptlib;
+#include <zmq.hpp>
 
 template <typename Scalar> class DhParam {
   public:
@@ -42,14 +41,14 @@ template <typename Scalar> class DhParam {
   Eigen::Matrix<Scalar, 4, 4> ft;
 };
 
-template <typename T> class IkProblem : public BoundedProblem<T> {
+template <typename T> class IkProblem : public cppoptlib::BoundedProblem<T> {
   public:
-  using typename Problem<T>::Scalar;
-  using typename Problem<T>::TVector;
+  using typename cppoptlib::Problem<T>::Scalar;
+  using typename cppoptlib::Problem<T>::TVector;
   using FT = Eigen::Matrix<Scalar, 4, 4>;
 
   IkProblem(std::vector<DhParam<T>> dhParams, const FT target, const TVector &l, const TVector &u)
-    : BoundedProblem<T>(l, u), target(std::move(target)), dhParams(std::move(dhParams)) {
+    : cppoptlib::BoundedProblem<T>(l, u), target(std::move(target)), dhParams(std::move(dhParams)) {
   }
 
   T value(const TVector &jointAngles) override {
@@ -73,68 +72,79 @@ template <typename T> class IkProblem : public BoundedProblem<T> {
 
   void gradient(const TVector &x, TVector &grad) override {
     // TODO: Compute jacobian
-    Problem<T>::finiteGradient(x, grad, 0);
+    cppoptlib::Problem<T>::finiteGradient(x, grad, 0);
   }
 
-  const FT target;
+  void setTarget(const FT itarget) {
+    target = std::move(itarget);
+  }
+
+  FT target;
   std::vector<DhParam<T>> dhParams;
 };
 
-float rad(const float deg) {
-  return deg * (M_PI / 180.0);
-}
+using IkProblemf = IkProblem<float>;
+using IkProblemd = IkProblem<double>;
 
 int main(int, char const *[]) {
-  Eigen::VectorXf lowerJointLimits(6);
-  lowerJointLimits << -M_PI, -M_PI, -M_PI, -M_PI, -M_PI, -M_PI;
+  zmq::context_t context;
+  zmq::socket_t socket(context, zmq::socket_type::rep);
+  socket.connect("tcp://localhost:5555");
+  zmq::message_t request;
 
-  Eigen::VectorXf upperJointLimits(6);
-  upperJointLimits << M_PI, M_PI, M_PI, M_PI, M_PI, M_PI;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+  while (true) {
+    socket.recv(request, zmq::recv_flags::none);
+    const auto *data = static_cast<const float *>(request.data());
 
-  Eigen::Matrix4f target;
-  // 3001 home
-  // target << 1, 0, 0, 175, 0, 1, 0, 1.0365410507983197e-14, 0, 0, 1, -34.28, 0, 0, 0, 1;
+    const int numberOfLinks = static_cast<const int>(data[0]);
 
-  // 3001 target
-  // target << 1, 0, 0, 200, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
+    const int dhParamsOffset = 1;
+    std::vector<DhParam<float>> dhParams;
+    dhParams.reserve(numberOfLinks);
+    for (int i = 0; i < numberOfLinks; ++i) {
+      dhParams.emplace_back(data[i * 4 + 0 + dhParamsOffset],
+                            data[i * 4 + 1 + dhParamsOffset],
+                            data[i * 4 + 2 + dhParamsOffset],
+                            data[i * 4 + 3 + dhParamsOffset]);
+    }
 
-  // cmm target
-  target << 1, 0, 0, 41.999999999999986, 0, 1, 0, -44, 0, 0, 1, 169, 0, 0, 0, 1;
+    const int upperJointLimitsOffset = dhParamsOffset + numberOfLinks * 4;
+    Eigen::VectorXf upperJointLimits(numberOfLinks);
+    for (int i = 0; i < numberOfLinks; ++i) {
+      upperJointLimits.coeffRef(i) = data[i + upperJointLimitsOffset];
+    }
 
-  typedef IkProblem<float> Problem;
-  Problem f({DhParam(13.0f, rad(180), 32.0f, rad(-90)),
-             DhParam(25.0f, rad(-90), 93.0f, rad(180)),
-             DhParam(11.0f, rad(90), 24.0f, rad(90)),
-             DhParam(128.0f, rad(-90), 0.0f, rad(90)),
-             DhParam(0.0f, 0.0f, 0.0f, rad(-90)),
-             DhParam(25.0f, rad(90), 0.0f, 0.0f)},
-            target,
-            lowerJointLimits,
-            upperJointLimits);
+    const int lowerJointLimitsOffset = upperJointLimitsOffset + numberOfLinks;
+    Eigen::VectorXf lowerJointLimits(numberOfLinks);
+    for (int i = 0; i < numberOfLinks; ++i) {
+      lowerJointLimits.coeffRef(i) = data[i + lowerJointLimitsOffset];
+    }
 
-  Eigen::VectorXf initialJointAngles(6);
-  initialJointAngles << 0, 0, 0, 0, 0, 0;
+    const int targetOffset = lowerJointLimitsOffset + numberOfLinks;
+    Eigen::Matrix4f target;
+    for (int i = 0; i < 16; ++i) {
+      const int row = i / 4;
+      const int col = i % 4;
+      target.coeffRef(row, col) = data[i + targetOffset];
+    }
 
-  LbfgsbSolver<Problem> solver;
+    const int initialJointAnglesOffset = targetOffset + 16;
+    Eigen::VectorXf initialJointAngles(numberOfLinks);
+    for (int i = 0; i < numberOfLinks; ++i) {
+      initialJointAngles.coeffRef(i) = data[i + initialJointAnglesOffset];
+    }
 
-  const int numIter = 1000;
-  auto start = std::chrono::high_resolution_clock::now();
-  for (int i = 0; i < numIter; ++i) {
+    IkProblemf f(std::move(dhParams), std::move(target), lowerJointLimits, upperJointLimits);
+
+    cppoptlib::LbfgsbSolver<IkProblemf> solver;
     solver.minimize(f, initialJointAngles);
-  }
-  auto end = std::chrono::high_resolution_clock::now();
-  std::cout << "Microseconds per solve: "
-            << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / numIter
-            << std::endl;
 
-  std::cout << initialJointAngles(0) * (180.0 / M_PI) << " "
-            << initialJointAngles(1) * (180.0 / M_PI) << " "
-            << initialJointAngles(2) * (180.0 / M_PI) << " "
-            << initialJointAngles(3) * (180.0 / M_PI) << " "
-            << initialJointAngles(4) * (180.0 / M_PI) << " "
-            << initialJointAngles(5) * (180.0 / M_PI) << std::endl;
-  std::cout << "argmin      " << initialJointAngles.transpose() << std::endl;
-  std::cout << "f in argmin " << f(initialJointAngles) << std::endl;
+    zmq::message_t reply(initialJointAngles.data(), numberOfLinks * 8);
+    socket.send(reply, zmq::send_flags::none);
+  }
+#pragma clang diagnostic pop
 
   return 0;
 }

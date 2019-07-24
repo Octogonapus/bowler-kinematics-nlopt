@@ -13,8 +13,9 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 # Needs Eigen 3.2.10
 find_package(Eigen3 3.2 REQUIRED NO_MODULE)
+find_package(cppzmq)
 
 add_executable(bowler_kinematics_cppnumericalsolvers main.cpp)
 
 target_include_directories(bowler_kinematics_cppnumericalsolvers PUBLIC include)
-target_link_libraries(bowler_kinematics_cppnumericalsolvers Eigen3::Eigen)
+target_link_libraries(bowler_kinematics_cppnumericalsolvers Eigen3::Eigen cppzmq)

@@ -33,9 +33,7 @@ template <typename T> class IkProblem : public BoundedProblem<T> {
   using FT = Eigen::Matrix<Scalar, 4, 4>;
 
   IkProblem(std::vector<DhParam<T>> dhParams, const FT target, const TVector &l, const TVector &u)
-    : BoundedProblem<T>(), target(std::move(target)), dhParams(std::move(dhParams)) {
-    BoundedProblem<T>::setLowerBound(l);
-    BoundedProblem<T>::setUpperBound(u);
+    : BoundedProblem<T>(l, u), target(std::move(target)), dhParams(std::move(dhParams)) {
   }
 
   T value(const TVector &jointAngles) override {
@@ -59,6 +57,7 @@ template <typename T> class IkProblem : public BoundedProblem<T> {
 
   void gradient(const TVector &x, TVector &grad) override {
     // TODO: Compute jacobian
+    Problem<T>::finiteGradient(x, grad, 3);
   }
 
   const FT target;
@@ -67,12 +66,14 @@ template <typename T> class IkProblem : public BoundedProblem<T> {
 
 int main(int, char const *[]) {
   Eigen::VectorXd lowerJointLimits(3);
-  lowerJointLimits << -M_PI / 2, -M_PI / 2, -M_PI / 2;
+  lowerJointLimits << -M_PI, -M_PI, -M_PI;
 
   Eigen::VectorXd upperJointLimits(3);
-  upperJointLimits << M_PI / 2, M_PI / 2, M_PI / 2;
+  upperJointLimits << M_PI, M_PI, M_PI;
 
   Eigen::Matrix4d target;
+  //  target << 1, 0, 0, 175, 0, 1, 0, 1.0365410507983197e-14, 0, 0, 1, -34.28, 0, 0, 0, 1;
+  target << 1, 0, 0, 200, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1;
 
   typedef IkProblem<double> Problem;
   Problem f({DhParam(135.0, 0.0, 0.0, -90 * (M_PI / 180.0)),
@@ -89,6 +90,9 @@ int main(int, char const *[]) {
 
   solver.minimize(f, initialJointAngles);
 
+  std::cout << initialJointAngles(0) * (180.0 / M_PI) << std::endl;
+  std::cout << initialJointAngles(1) * (180.0 / M_PI) << std::endl;
+  std::cout << initialJointAngles(2) * (180.0 / M_PI) << std::endl;
   std::cout << "argmin      " << initialJointAngles.transpose() << std::endl;
   std::cout << "f in argmin " << f(initialJointAngles) << std::endl;
 

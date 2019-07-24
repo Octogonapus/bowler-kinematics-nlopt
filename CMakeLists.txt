@@ -1,0 +1,19 @@
+cmake_minimum_required(VERSION 3.14)
+project(bowler_kinematics_cppnumericalsolvers)
+
+set(CMAKE_CXX_STANDARD 17)
+
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
+set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+
+add_executable(bowler_kinematics_cppnumericalsolvers main.cpp)
+
+target_include_directories(bowler_kinematics_cppnumericalsolvers PUBLIC include)
+target_link_libraries(bowler_kinematics_cppnumericalsolvers Eigen3::Eigen)

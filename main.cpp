@@ -75,11 +75,7 @@ template <typename T> class IkProblem : public cppoptlib::BoundedProblem<T> {
     cppoptlib::Problem<T>::finiteGradient(x, grad, 0);
   }
 
-  void setTarget(const FT itarget) {
-    target = std::move(itarget);
-  }
-
-  FT target;
+  const FT target;
   std::vector<DhParam<T>> dhParams;
 };
 

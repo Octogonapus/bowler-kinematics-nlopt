@@ -11,7 +11,8 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -fopenmp")
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
-find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+# Needs Eigen 3.2.10
+find_package(Eigen3 3.2 REQUIRED NO_MODULE)
 
 add_executable(bowler_kinematics_cppnumericalsolvers main.cpp)
 

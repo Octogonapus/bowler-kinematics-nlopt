@@ -1,10 +1,7 @@
 #include "cppoptlib/meta.h"
 #include "cppoptlib/problem.h"
 #include "cppoptlib/solver/lbfgsbsolver.h"
-#include <chrono>
 #include <cmath>
-#include <iostream>
-#include <zmq.hpp>
 
 template <typename Scalar> class DhParam {
   public:
@@ -75,76 +72,57 @@ template <typename T> class IkProblem : public cppoptlib::BoundedProblem<T> {
     cppoptlib::Problem<T>::finiteGradient(x, grad, 0);
   }
 
-  void setTarget(const FT itarget) {
-    target = std::move(itarget);
-  }
-
-  FT target;
+  const FT target;
   std::vector<DhParam<T>> dhParams;
 };
 
 using IkProblemf = IkProblem<float>;
-using IkProblemd = IkProblem<double>;
 
-int main(int, char const *[]) {
-  zmq::context_t context;
-  zmq::socket_t socket(context, zmq::socket_type::rep);
-  socket.connect("tcp://localhost:5555");
-  zmq::message_t request;
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-  while (true) {
-    socket.recv(request, zmq::recv_flags::none);
-    const auto *data = static_cast<const float *>(request.data());
-
-    const int numberOfLinks = static_cast<const int>(data[0]);
-
-    const int dhParamsOffset = 1;
-    std::vector<DhParam<float>> dhParams;
-    dhParams.reserve(numberOfLinks);
-    for (int i = 0; i < numberOfLinks; ++i) {
-      dhParams.emplace_back(data[i * 4 + 0 + dhParamsOffset],
-                            data[i * 4 + 1 + dhParamsOffset],
-                            data[i * 4 + 2 + dhParamsOffset],
-                            data[i * 4 + 3 + dhParamsOffset]);
-    }
-
-    const int upperJointLimitsOffset = dhParamsOffset + numberOfLinks * 4;
-    Eigen::VectorXf upperJointLimits(numberOfLinks);
-    for (int i = 0; i < numberOfLinks; ++i) {
-      upperJointLimits.coeffRef(i) = data[i + upperJointLimitsOffset];
-    }
-
-    const int lowerJointLimitsOffset = upperJointLimitsOffset + numberOfLinks;
-    Eigen::VectorXf lowerJointLimits(numberOfLinks);
-    for (int i = 0; i < numberOfLinks; ++i) {
-      lowerJointLimits.coeffRef(i) = data[i + lowerJointLimitsOffset];
-    }
-
-    const int targetOffset = lowerJointLimitsOffset + numberOfLinks;
-    Eigen::Matrix4f target;
-    for (int i = 0; i < 16; ++i) {
-      const int row = i / 4;
-      const int col = i % 4;
-      target.coeffRef(row, col) = data[i + targetOffset];
-    }
-
-    const int initialJointAnglesOffset = targetOffset + 16;
-    Eigen::VectorXf initialJointAngles(numberOfLinks);
-    for (int i = 0; i < numberOfLinks; ++i) {
-      initialJointAngles.coeffRef(i) = data[i + initialJointAnglesOffset];
-    }
-
-    IkProblemf f(std::move(dhParams), std::move(target), lowerJointLimits, upperJointLimits);
-
-    cppoptlib::LbfgsbSolver<IkProblemf> solver;
-    solver.minimize(f, initialJointAngles);
-
-    zmq::message_t reply(initialJointAngles.data(), numberOfLinks * 8);
-    socket.send(reply, zmq::send_flags::none);
+extern "C" {
+void solve(const int numberOfLinks, const float *data) {
+  const int dhParamsOffset = 0;
+  std::vector<DhParam<float>> dhParams;
+  dhParams.reserve(numberOfLinks);
+  for (int i = 0; i < numberOfLinks; ++i) {
+    dhParams.emplace_back(data[i * 4 + 0 + dhParamsOffset],
+                          data[i * 4 + 1 + dhParamsOffset],
+                          data[i * 4 + 2 + dhParamsOffset],
+                          data[i * 4 + 3 + dhParamsOffset]);
   }
-#pragma clang diagnostic pop
 
+  const int upperJointLimitsOffset = dhParamsOffset + numberOfLinks * 4;
+  Eigen::VectorXf upperJointLimits(numberOfLinks);
+  for (int i = 0; i < numberOfLinks; ++i) {
+    upperJointLimits.coeffRef(i) = data[i + upperJointLimitsOffset];
+  }
+
+  const int lowerJointLimitsOffset = upperJointLimitsOffset + numberOfLinks;
+  Eigen::VectorXf lowerJointLimits(numberOfLinks);
+  for (int i = 0; i < numberOfLinks; ++i) {
+    lowerJointLimits.coeffRef(i) = data[i + lowerJointLimitsOffset];
+  }
+
+  const int targetOffset = lowerJointLimitsOffset + numberOfLinks;
+  Eigen::Matrix4f target;
+  for (int i = 0; i < 16; ++i) {
+    const int row = i / 4;
+    const int col = i % 4;
+    target.coeffRef(row, col) = data[i + targetOffset];
+  }
+
+  const int initialJointAnglesOffset = targetOffset + 16;
+  Eigen::VectorXf initialJointAngles(numberOfLinks);
+  for (int i = 0; i < numberOfLinks; ++i) {
+    initialJointAngles.coeffRef(i) = data[i + initialJointAnglesOffset];
+  }
+
+  IkProblemf f(std::move(dhParams), std::move(target), lowerJointLimits, upperJointLimits);
+
+  cppoptlib::LbfgsbSolver<IkProblemf> solver;
+  solver.minimize(f, initialJointAngles);
+}
+}
+
+int main(int, char **) {
   return 0;
 }

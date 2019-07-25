@@ -2,6 +2,7 @@
 #include "cppoptlib/problem.h"
 #include "cppoptlib/solver/lbfgsbsolver.h"
 #include <cmath>
+#include <jni.h>
 
 template <typename Scalar> class DhParam {
   public:
@@ -79,7 +80,11 @@ template <typename T> class IkProblem : public cppoptlib::BoundedProblem<T> {
 using IkProblemf = IkProblem<float>;
 
 extern "C" {
-void solve(const int numberOfLinks, const float *data) {
+JNIEXPORT jfloatArray JNICALL Java_NativeIKSolver_solve(JNIEnv *env,
+                                                        jobject object,
+                                                        jint numberOfLinks,
+                                                        jfloatArray dataArray) {
+  jfloat *data = env->GetFloatArrayElements(dataArray, 0);
   const int dhParamsOffset = 0;
   std::vector<DhParam<float>> dhParams;
   dhParams.reserve(numberOfLinks);
@@ -120,6 +125,10 @@ void solve(const int numberOfLinks, const float *data) {
 
   cppoptlib::LbfgsbSolver<IkProblemf> solver;
   solver.minimize(f, initialJointAngles);
+  env->ReleaseFloatArrayElements(dataArray, data, 0);
+  jfloatArray result = env->NewFloatArray(numberOfLinks);
+  env->SetFloatArrayRegion(result, 0, numberOfLinks, initialJointAngles.data());
+  return result;
 }
 }
 

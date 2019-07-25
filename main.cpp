@@ -80,10 +80,11 @@ template <typename T> class IkProblem : public cppoptlib::BoundedProblem<T> {
 using IkProblemf = IkProblem<float>;
 
 extern "C" {
-JNIEXPORT jfloatArray JNICALL Java_NativeIKSolver_solve(JNIEnv *env,
-                                                        jobject object,
-                                                        jint numberOfLinks,
-                                                        jfloatArray dataArray) {
+JNIEXPORT jfloatArray JNICALL
+Java_com_neuronrobotics_bowlerkinematicsnative_solver_NativeIKSolver_solve(JNIEnv *env,
+                                                                           jobject object,
+                                                                           jint numberOfLinks,
+                                                                           jfloatArray dataArray) {
   jfloat *data = env->GetFloatArrayElements(dataArray, 0);
   const int dhParamsOffset = 0;
   std::vector<DhParam<float>> dhParams;

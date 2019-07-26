@@ -15,3 +15,4 @@ okapilib@*.zip
 .project
 .settings/
 cmake-build-debug/
+cmake-build-release/

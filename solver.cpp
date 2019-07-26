@@ -6,37 +6,38 @@
 
 template <typename Scalar> class DhParam {
   public:
-  DhParam(Scalar d, Scalar theta, Scalar r, Scalar alpha) : d(d), theta(theta), r(r), alpha(alpha) {
-    ft.coeffRef(2, 0) = 0;
-    ft.coeffRef(2, 3) = d;
-    ft.coeffRef(3, 0) = 0;
-    ft.coeffRef(3, 1) = 0;
-    ft.coeffRef(3, 2) = 0;
-    ft.coeffRef(3, 3) = 1;
+  DhParam(Scalar d, Scalar theta, Scalar r, Scalar alpha)
+    : m_d(d), m_theta(theta), m_r(r), m_alpha(alpha) {
+    m_ft.coeffRef(2, 0) = 0;
+    m_ft.coeffRef(2, 3) = m_d;
+    m_ft.coeffRef(3, 0) = 0;
+    m_ft.coeffRef(3, 1) = 0;
+    m_ft.coeffRef(3, 2) = 0;
+    m_ft.coeffRef(3, 3) = 1;
   }
 
   void computeFT(const Scalar jointAngle) {
-    const Scalar ct = std::cos(theta + jointAngle);
-    const Scalar st = std::sin(theta + jointAngle);
-    const Scalar ca = std::cos(alpha);
-    const Scalar sa = std::sin(alpha);
-    ft.coeffRef(0, 0) = ct;
-    ft.coeffRef(0, 1) = -st * ca;
-    ft.coeffRef(0, 2) = st * sa;
-    ft.coeffRef(0, 3) = r * ct;
-    ft.coeffRef(1, 0) = st;
-    ft.coeffRef(1, 1) = ct * ca;
-    ft.coeffRef(1, 2) = -ct * sa;
-    ft.coeffRef(1, 3) = r * st;
-    ft.coeffRef(2, 1) = sa;
-    ft.coeffRef(2, 2) = ca;
+    const Scalar ct = std::cos(m_theta + jointAngle);
+    const Scalar st = std::sin(m_theta + jointAngle);
+    const Scalar ca = std::cos(m_alpha);
+    const Scalar sa = std::sin(m_alpha);
+    m_ft.coeffRef(0, 0) = ct;
+    m_ft.coeffRef(0, 1) = -st * ca;
+    m_ft.coeffRef(0, 2) = st * sa;
+    m_ft.coeffRef(0, 3) = m_r * ct;
+    m_ft.coeffRef(1, 0) = st;
+    m_ft.coeffRef(1, 1) = ct * ca;
+    m_ft.coeffRef(1, 2) = -ct * sa;
+    m_ft.coeffRef(1, 3) = m_r * st;
+    m_ft.coeffRef(2, 1) = sa;
+    m_ft.coeffRef(2, 2) = ca;
   }
 
-  const Scalar d;
-  const Scalar theta;
-  const Scalar r;
-  const Scalar alpha;
-  Eigen::Matrix<Scalar, 4, 4> ft;
+  const Scalar m_d;
+  const Scalar m_theta;
+  const Scalar m_r;
+  const Scalar m_alpha;
+  Eigen::Matrix<Scalar, 4, 4> m_ft;
 };
 
 template <typename T> class IkProblem : public cppoptlib::BoundedProblem<T> {
@@ -46,19 +47,21 @@ template <typename T> class IkProblem : public cppoptlib::BoundedProblem<T> {
   using FT = Eigen::Matrix<Scalar, 4, 4>;
 
   IkProblem(std::vector<DhParam<T>> dhParams, const FT target, const TVector &l, const TVector &u)
-    : cppoptlib::BoundedProblem<T>(l, u), target(std::move(target)), dhParams(std::move(dhParams)) {
+    : cppoptlib::BoundedProblem<T>(l, u),
+      m_target(std::move(target)),
+      m_dhParams(std::move(dhParams)) {
   }
 
   T value(const TVector &jointAngles) override {
     FT tip = FT::Identity();
-    for (size_t i = 0; i < dhParams.size(); ++i) {
-      dhParams[i].computeFT(jointAngles[i]);
-      tip *= dhParams[i].ft;
+    for (size_t i = 0; i < m_dhParams.size(); ++i) {
+      m_dhParams[i].computeFT(jointAngles[i]);
+      tip *= m_dhParams[i].m_ft;
     }
 
-    const T targetX = target.coeff(0, 3);
-    const T targetY = target.coeff(1, 3);
-    const T targetZ = target.coeff(2, 3);
+    const T targetX = m_target.coeff(0, 3);
+    const T targetY = m_target.coeff(1, 3);
+    const T targetZ = m_target.coeff(2, 3);
 
     const T tipX = tip.coeff(0, 3);
     const T tipY = tip.coeff(1, 3);
@@ -73,8 +76,8 @@ template <typename T> class IkProblem : public cppoptlib::BoundedProblem<T> {
     cppoptlib::Problem<T>::finiteGradient(x, grad, 0);
   }
 
-  const FT target;
-  std::vector<DhParam<T>> dhParams;
+  const FT m_target;
+  std::vector<DhParam<T>> m_dhParams;
 };
 
 using IkProblemf = IkProblem<float>;
@@ -82,10 +85,10 @@ using IkProblemf = IkProblem<float>;
 extern "C" {
 JNIEXPORT jfloatArray JNICALL
 Java_com_neuronrobotics_bowlerkinematicsnative_solver_NativeIKSolver_solve(JNIEnv *env,
-                                                                           jobject object,
+                                                                           jobject,
                                                                            jint numberOfLinks,
                                                                            jfloatArray dataArray) {
-  jfloat *data = env->GetFloatArrayElements(dataArray, 0);
+  jfloat *data = env->GetFloatArrayElements(dataArray, nullptr);
   const int dhParamsOffset = 0;
   std::vector<DhParam<float>> dhParams;
   dhParams.reserve(numberOfLinks);

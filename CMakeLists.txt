@@ -15,7 +15,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 find_package(Eigen3 3.2 REQUIRED NO_MODULE)
 find_package(JNI REQUIRED)
 
-add_executable(bowler_kinematics_cppnumericalsolvers main.cpp)
+add_executable(bowler_kinematics_cppnumericalsolvers solver.cpp main.cpp)
 
 target_include_directories(bowler_kinematics_cppnumericalsolvers PUBLIC include)
 target_include_directories(bowler_kinematics_cppnumericalsolvers PUBLIC ${JNI_INCLUDE_DIRS})
